@@ -1,0 +1,573 @@
+{
+  "name": "Real Estate - Web Lead Qualification & Scoring",
+  "nodes": [
+    {
+      "id": "setup-guide",
+      "name": "Sticky Note - Setup Guide",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [-200, -100],
+      "parameters": {
+        "content": "# 🛠️ Setup Guide\n\n## 📄 Overview\nThis workflow captures incoming web leads, validates their input, uses AI (GPT-4o Mini) to classify intent and urgency, checks against a property database via API, scores the lead, and outputs a structured lead object.\n\n## 🔑 Required Credentials\n- **OpenAI**: API key for lead intent/urgency classification\n\n## ⚙️ Configuration Steps\n1. Connect your **OpenAI account** credential\n2. Update the **Property Check API URL** in the HTTP Request node (currently set to placeholder)\n3. Configure webhook URL - after activating, use the generated URL in your web forms\n4. Adjust scoring thresholds in the **Calculate Web Lead Score** code node as needed\n\n## 📋 Webhook Payload Expected\n```json\n{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"phone\": \"555-1234\",\n  \"userMessage\": \"I want to buy a home...\",\n  \"propertyAddress\": \"123 Main St\"\n}\n```\n\n## 🧪 Testing\n1. Activate the workflow\n2. Send a POST request to the webhook URL\n3. Check execution logs for lead scoring output",
+        "height": 720,
+        "width": 500,
+        "color": 2
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "section-trigger",
+      "name": "Sticky Note - Trigger Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [360, 100],
+      "parameters": {
+        "content": "## Part 1: Lead Ingestion\nCaptures incoming leads via webhook and validates input data",
+        "height": 300,
+        "width": 520,
+        "color": 5
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "section-ai",
+      "name": "Sticky Note - AI Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [920, 100],
+      "parameters": {
+        "content": "## Part 2: AI Classification\nUses GPT-4o Mini to analyze lead intent and urgency",
+        "height": 400,
+        "width": 680,
+        "color": 4
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "section-scoring",
+      "name": "Sticky Note - Scoring Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [1640, 100],
+      "parameters": {
+        "content": "## Part 3: Property Check & Scoring\nVerifies property listing status and calculates lead score",
+        "height": 400,
+        "width": 900,
+        "color": 3
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "webhook-trigger",
+      "name": "Incoming Web Lead Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [400, 300],
+      "parameters": {
+        "path": "incoming-lead",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "lead-intake-webhook"
+    },
+    {
+      "id": "set-lead-fields",
+      "name": "Set & Rename Incoming Lead Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [620, 300],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "name",
+              "name": "leadName",
+              "value": "={{ $json.body.name || $json.name || 'Unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "email",
+              "name": "leadEmail",
+              "value": "={{ $json.body.email || $json.email || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "phone",
+              "name": "leadPhone",
+              "value": "={{ $json.body.phone || $json.phone || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "message",
+              "name": "userMessage",
+              "value": "={{ $json.body.userMessage || $json.userMessage || $json.body.message || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "property",
+              "name": "propertyAddress",
+              "value": "={{ $json.body.propertyAddress || $json.propertyAddress || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "timestamp",
+              "name": "receivedAt",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "if-valid-message",
+      "name": "IF User Message Valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [840, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "msg-exists",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              },
+              "leftValue": "={{ $json.userMessage }}",
+              "rightValue": ""
+            },
+            {
+              "id": "msg-length",
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              },
+              "leftValue": "={{ $json.userMessage.length }}",
+              "rightValue": 10
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "clean-message",
+      "name": "Clean User Message Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1060, 200],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Clean and normalize user message text\nconst rawMessage = $json.userMessage || '';\n\n// Remove extra whitespace, normalize line breaks\nlet cleanedMessage = rawMessage\n  .replace(/\\s+/g, ' ')       // Collapse multiple spaces\n  .replace(/\\n+/g, ' ')       // Replace newlines with space\n  .trim();                     // Remove leading/trailing whitespace\n\nreturn {\n  ...$json,\n  cleanedMessage: cleanedMessage,\n  messageWordCount: cleanedMessage.split(' ').filter(w => w.length > 0).length\n};"
+      }
+    },
+    {
+      "id": "ai-classify-intent",
+      "name": "AI Classify Lead Intent & Urgency",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [1280, 200],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.cleanedMessage }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are a real estate lead classification AI. Analyze the following message from a potential lead and classify their intent and urgency.\n\nRespond ONLY with valid JSON in this exact format:\n{\n  \"intent\": \"buying\" | \"selling\" | \"renting\" | \"inquiry\" | \"other\",\n  \"urgency\": \"high\" | \"medium\" | \"low\",\n  \"intentConfidence\": 0.0-1.0,\n  \"summary\": \"brief 1-sentence summary of lead's need\",\n  \"keyDetails\": [\"extracted detail 1\", \"extracted detail 2\"]\n}\n\nUrgency Guidelines:\n- HIGH: Ready to act within 30 days, mentions deadlines, pre-approved\n- MEDIUM: Active search, 1-3 month timeframe\n- LOW: Just browsing, early research, no timeline mentioned"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "llm-intent",
+      "name": "LLM for Lead Intent Classification",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [1280, 400],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "options": {
+          "responseFormat": "json_object",
+          "temperature": 0.3
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "placeholder-openai",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "id": "extract-ai-output",
+      "name": "Extract Intent & Urgency from AI Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1500, 200],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "all-prev",
+              "name": "leadData",
+              "value": "={{ $('Clean User Message Text').item.json }}",
+              "type": "object"
+            },
+            {
+              "id": "ai-result",
+              "name": "aiClassification",
+              "value": "={{ JSON.parse($json.text) }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "standardize-data",
+      "name": "Standardize All Lead Data Fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1720, 200],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Standardize and consolidate all lead data\nconst leadData = $json.leadData || {};\nconst aiClassification = $json.aiClassification || {};\n\nreturn {\n  // Original lead info\n  name: (leadData.leadName || '').trim(),\n  email: (leadData.leadEmail || '').toLowerCase().trim(),\n  phone: (leadData.leadPhone || '').replace(/[^0-9+]/g, ''),\n  propertyAddress: (leadData.propertyAddress || '').trim(),\n  \n  // Message data\n  originalMessage: leadData.userMessage || '',\n  cleanedMessage: leadData.cleanedMessage || '',\n  messageWordCount: leadData.messageWordCount || 0,\n  \n  // AI classification\n  intent: aiClassification.intent || 'unknown',\n  urgency: aiClassification.urgency || 'low',\n  intentConfidence: aiClassification.intentConfidence || 0,\n  summary: aiClassification.summary || '',\n  keyDetails: aiClassification.keyDetails || [],\n  \n  // Metadata\n  receivedAt: leadData.receivedAt || new Date().toISOString(),\n  source: 'web_form'\n};"
+      }
+    },
+    {
+      "id": "property-check-api",
+      "name": "Call Property Check API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1940, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.example.com/property-check",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ address: $json.propertyAddress, email: $json.email }) }}",
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "if-known-listing",
+      "name": "IF Property is Known Listing",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2160, 200],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "match-found",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.matchFound }}",
+              "rightValue": "true"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "calculate-score-known",
+      "name": "Calculate Web Lead Score (Known Listing)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2380, 100],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Calculate lead score for known listing\nconst leadData = $('Standardize All Lead Data Fields').item.json;\nconst propertyData = $json;\n\nlet score = 0;\nconst scoreBreakdown = [];\n\n// Known listing bonus (+25)\nscore += 25;\nscoreBreakdown.push({ factor: 'Known Listing', points: 25 });\n\n// Intent scoring\nconst intentScores = { buying: 30, selling: 25, renting: 15, inquiry: 10, other: 5 };\nconst intentPoints = intentScores[leadData.intent] || 5;\nscore += intentPoints;\nscoreBreakdown.push({ factor: `Intent: ${leadData.intent}`, points: intentPoints });\n\n// Urgency scoring\nconst urgencyScores = { high: 25, medium: 15, low: 5 };\nconst urgencyPoints = urgencyScores[leadData.urgency] || 5;\nscore += urgencyPoints;\nscoreBreakdown.push({ factor: `Urgency: ${leadData.urgency}`, points: urgencyPoints });\n\n// Contact info completeness\nif (leadData.email) { score += 5; scoreBreakdown.push({ factor: 'Has Email', points: 5 }); }\nif (leadData.phone) { score += 5; scoreBreakdown.push({ factor: 'Has Phone', points: 5 }); }\n\n// AI confidence bonus\nif (leadData.intentConfidence > 0.8) {\n  score += 10;\n  scoreBreakdown.push({ factor: 'High AI Confidence', points: 10 });\n}\n\n// Determine priority tier\nlet priority = 'Low';\nif (score >= 70) priority = 'Hot';\nelse if (score >= 50) priority = 'Warm';\nelse if (score >= 30) priority = 'Medium';\n\nreturn {\n  ...leadData,\n  propertyMatch: propertyData,\n  isKnownListing: true,\n  leadScore: score,\n  priority: priority,\n  scoreBreakdown: scoreBreakdown,\n  scoredAt: new Date().toISOString()\n};"
+      }
+    },
+    {
+      "id": "calculate-score-unknown",
+      "name": "Calculate Web Lead Score (Unknown)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2380, 300],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Calculate lead score for unknown property\nconst leadData = $('Standardize All Lead Data Fields').item.json;\n\nlet score = 0;\nconst scoreBreakdown = [];\n\n// Intent scoring\nconst intentScores = { buying: 30, selling: 25, renting: 15, inquiry: 10, other: 5 };\nconst intentPoints = intentScores[leadData.intent] || 5;\nscore += intentPoints;\nscoreBreakdown.push({ factor: `Intent: ${leadData.intent}`, points: intentPoints });\n\n// Urgency scoring\nconst urgencyScores = { high: 25, medium: 15, low: 5 };\nconst urgencyPoints = urgencyScores[leadData.urgency] || 5;\nscore += urgencyPoints;\nscoreBreakdown.push({ factor: `Urgency: ${leadData.urgency}`, points: urgencyPoints });\n\n// Contact info completeness\nif (leadData.email) { score += 5; scoreBreakdown.push({ factor: 'Has Email', points: 5 }); }\nif (leadData.phone) { score += 5; scoreBreakdown.push({ factor: 'Has Phone', points: 5 }); }\n\n// AI confidence bonus\nif (leadData.intentConfidence > 0.8) {\n  score += 10;\n  scoreBreakdown.push({ factor: 'High AI Confidence', points: 10 });\n}\n\n// Message quality bonus\nif (leadData.messageWordCount > 30) {\n  score += 5;\n  scoreBreakdown.push({ factor: 'Detailed Message', points: 5 });\n}\n\n// Determine priority tier\nlet priority = 'Low';\nif (score >= 60) priority = 'Hot';\nelse if (score >= 40) priority = 'Warm';\nelse if (score >= 25) priority = 'Medium';\n\nreturn {\n  ...leadData,\n  isKnownListing: false,\n  leadScore: score,\n  priority: priority,\n  scoreBreakdown: scoreBreakdown,\n  scoredAt: new Date().toISOString()\n};"
+      }
+    },
+    {
+      "id": "merge-scores",
+      "name": "Merge Scored Leads",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [2600, 200],
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      }
+    },
+    {
+      "id": "set-final-lead",
+      "name": "Set Final Structured Web Lead Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2820, 200],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "final-lead",
+              "name": "qualifiedLead",
+              "value": "={{ $json }}",
+              "type": "object"
+            },
+            {
+              "id": "status",
+              "name": "status",
+              "value": "qualified",
+              "type": "string"
+            },
+            {
+              "id": "workflow",
+              "name": "processedBy",
+              "value": "web-lead-qualification-v1",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "respond-success",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3040, 200],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, leadId: $json.qualifiedLead.email + '-' + Date.now(), score: $json.qualifiedLead.leadScore, priority: $json.qualifiedLead.priority }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "invalid-message-response",
+      "name": "Respond Invalid Message",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1060, 400],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: 'Invalid or missing user message. Message must be at least 10 characters.' }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Incoming Web Lead Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set & Rename Incoming Lead Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set & Rename Incoming Lead Fields": {
+      "main": [
+        [
+          {
+            "node": "IF User Message Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF User Message Valid": {
+      "main": [
+        [
+          {
+            "node": "Clean User Message Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Invalid Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean User Message Text": {
+      "main": [
+        [
+          {
+            "node": "AI Classify Lead Intent & Urgency",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM for Lead Intent Classification": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Classify Lead Intent & Urgency",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Classify Lead Intent & Urgency": {
+      "main": [
+        [
+          {
+            "node": "Extract Intent & Urgency from AI Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Intent & Urgency from AI Output": {
+      "main": [
+        [
+          {
+            "node": "Standardize All Lead Data Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Standardize All Lead Data Fields": {
+      "main": [
+        [
+          {
+            "node": "Call Property Check API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Property Check API": {
+      "main": [
+        [
+          {
+            "node": "IF Property is Known Listing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Property is Known Listing": {
+      "main": [
+        [
+          {
+            "node": "Calculate Web Lead Score (Known Listing)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Calculate Web Lead Score (Unknown)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Web Lead Score (Known Listing)": {
+      "main": [
+        [
+          {
+            "node": "Merge Scored Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Web Lead Score (Unknown)": {
+      "main": [
+        [
+          {
+            "node": "Merge Scored Leads",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Scored Leads": {
+      "main": [
+        [
+          {
+            "node": "Set Final Structured Web Lead Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Final Structured Web Lead Data": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

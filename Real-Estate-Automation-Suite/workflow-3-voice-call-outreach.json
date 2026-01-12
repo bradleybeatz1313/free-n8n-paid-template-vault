@@ -1,0 +1,821 @@
+{
+  "name": "Real Estate - Voice Call Lead Outreach & Qualification",
+  "nodes": [
+    {
+      "id": "setup-guide",
+      "name": "Sticky Note - Setup Guide",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [-200, -100],
+      "parameters": {
+        "content": "# 🛠️ Setup Guide\n\n## 📄 Overview\nThis workflow automates initial contact with new leads via AI-powered voice calls. It uses ElevenLabs for text-to-speech, Twilio for placing calls, and GPT-4o Mini to analyze call responses and qualify leads.\n\n## 🔑 Required Credentials\n- **OpenAI**: API key for call analysis and lead qualification\n- **ElevenLabs**: API key for text-to-speech\n- **Twilio**: Account SID, Auth Token, and phone number\n- **Google Sheets**: OAuth2 for lead logging\n\n## ⚙️ Configuration Steps\n1. **ElevenLabs Setup**:\n   - Get API key from elevenlabs.io\n   - Choose a voice ID (e.g., 'Rachel', 'Adam')\n   - Update the HTTP Request node with your voice_id\n\n2. **Twilio Setup**:\n   - Create Twilio account at twilio.com\n   - Get Account SID, Auth Token\n   - Purchase a phone number\n   - Set up TwiML bins or callback URLs for call handling\n\n3. **Google Sheets Setup**:\n   - Create 'Leads' sheet with columns: Timestamp, Name, Phone, Email, Property, Score, Status, Interest Level, Budget, Timeline\n   - Create 'LeadsSummary' sheet with columns: Timestamp, LeadName, Summary, NextSteps\n\n4. **Error Notification**:\n   - Create a sub-workflow for admin notifications\n   - Update the Execute Workflow node with that workflow ID\n\n## 📋 Webhook Payload Expected\n```json\n{\n  \"name\": \"John Doe\",\n  \"phone\": \"+15551234567\",\n  \"email\": \"john@example.com\",\n  \"propertyRef\": \"123 Main St\"\n}\n```\n\n## ⚠️ Important Notes\n- Ensure Twilio number has voice capability\n- Test with your own number first\n- Comply with local calling regulations (TCPA, etc.)",
+        "height": 920,
+        "width": 520,
+        "color": 2
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "section-trigger",
+      "name": "Sticky Note - Trigger & Prep",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [360, 60],
+      "parameters": {
+        "content": "## Part 1: Lead Intake & Call Preparation\nReceive lead data and generate personalized call script",
+        "height": 340,
+        "width": 640,
+        "color": 5
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "section-voice",
+      "name": "Sticky Note - Voice Call",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [1040, 60],
+      "parameters": {
+        "content": "## Part 2: Voice Call Initiation\nConvert script to speech and place call via Twilio",
+        "height": 340,
+        "width": 520,
+        "color": 7
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "section-ai-analysis",
+      "name": "Sticky Note - AI Analysis",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [1600, 60],
+      "parameters": {
+        "content": "## Part 3: AI Call Analysis\nExtract information and qualify lead from call interaction",
+        "height": 440,
+        "width": 680,
+        "color": 4
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "section-logging",
+      "name": "Sticky Note - Logging",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [2320, 60],
+      "parameters": {
+        "content": "## Part 4: Lead Scoring & Logging\nScore leads and log to Google Sheets",
+        "height": 600,
+        "width": 900,
+        "color": 3
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "webhook-trigger",
+      "name": "Webhook for Voice Call Lead",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [400, 260],
+      "parameters": {
+        "path": "new-lead",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "voice-lead-webhook"
+    },
+    {
+      "id": "set-lead-details",
+      "name": "Set Initial Voice Call Lead Details",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [620, 260],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "name",
+              "name": "leadName",
+              "value": "={{ $json.body.name || $json.name || 'Valued Customer' }}",
+              "type": "string"
+            },
+            {
+              "id": "phone",
+              "name": "leadPhone",
+              "value": "={{ $json.body.phone || $json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "email",
+              "name": "leadEmail",
+              "value": "={{ $json.body.email || $json.email || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "property",
+              "name": "propertyRef",
+              "value": "={{ $json.body.propertyRef || $json.propertyRef || 'your inquiry' }}",
+              "type": "string"
+            },
+            {
+              "id": "timestamp",
+              "name": "callInitiatedAt",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "generate-script",
+      "name": "Generate Voice Call Introduction Script",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [840, 260],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Generate personalized call script\nconst leadName = $json.leadName || 'there';\nconst propertyRef = $json.propertyRef || 'your recent inquiry';\n\n// Create a natural, professional greeting\nconst script = `Hello ${leadName}! This is an automated call from ABC Realty regarding ${propertyRef}. \n\nWe received your inquiry and wanted to follow up quickly. If you're interested in learning more, please press 1 now. \n\nIf you'd like us to call you back at a better time, press 2. \n\nOr press 3 if you're no longer interested. \n\nThank you for considering ABC Realty for your real estate needs!`;\n\n// Clean script for TTS\nconst cleanScript = script\n  .replace(/\\n+/g, ' ')\n  .replace(/\\s+/g, ' ')\n  .trim();\n\nreturn {\n  ...$json,\n  callScript: cleanScript,\n  scriptLength: cleanScript.length\n};"
+      }
+    },
+    {
+      "id": "elevenlabs-tts",
+      "name": "ElevenLabs: Convert Intro Script to Voice",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1080, 260],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"text\": {{ JSON.stringify($json.callScript) }},\n  \"model_id\": \"eleven_monolingual_v1\",\n  \"voice_settings\": {\n    \"stability\": 0.5,\n    \"similarity_boost\": 0.75\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "placeholder-elevenlabs",
+          "name": "ElevenLabs API Key"
+        }
+      }
+    },
+    {
+      "id": "twilio-call",
+      "name": "Twilio: Initiate Voice Call to Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 260],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.twilio.com/2010-04-01/Accounts/YOUR_ACCOUNT_SID/Calls.json",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "string",
+        "body": "=To={{ encodeURIComponent($('Set Initial Voice Call Lead Details').item.json.leadPhone) }}&From={{ encodeURIComponent('+15551234567') }}&Twiml={{ encodeURIComponent('<Response><Say voice=\"Polly.Joanna\">' + $('Generate Voice Call Introduction Script').item.json.callScript + '</Say><Gather input=\"dtmf\" numDigits=\"1\" action=\"https://your-webhook-url.com/call-response\" method=\"POST\"><Say>Press 1 if interested, 2 for callback, or 3 if not interested.</Say></Gather></Response>') }}",
+        "contentType": "form-urlencoded",
+        "options": {}
+      },
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "placeholder-twilio",
+          "name": "Twilio credentials"
+        }
+      }
+    },
+    {
+      "id": "set-call-result",
+      "name": "Set Call Result Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1520, 260],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "lead-data",
+              "name": "leadData",
+              "value": "={{ $('Set Initial Voice Call Lead Details').item.json }}",
+              "type": "object"
+            },
+            {
+              "id": "call-sid",
+              "name": "callSid",
+              "value": "={{ $json.sid || 'unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "call-status",
+              "name": "callStatus",
+              "value": "={{ $json.status || 'initiated' }}",
+              "type": "string"
+            },
+            {
+              "id": "dtmf-input",
+              "name": "dtmfResponse",
+              "value": "={{ $json.Digits || '0' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ai-extract-call-info",
+      "name": "AI Agent: Extract Info from Voice Call",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
+      "position": [1740, 260],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this voice call interaction data and extract lead qualification information:\n\nLead Name: {{ $json.leadData.leadName }}\nProperty Reference: {{ $json.leadData.propertyRef }}\nCall Status: {{ $json.callStatus }}\nDTMF Response: {{ $json.dtmfResponse }}\n\nDTMF Interpretation:\n- 1 = Interested\n- 2 = Request callback\n- 3 = Not interested\n- 0 or no response = No response/voicemail\n\nExtract and infer the following:\n1. Interest level (high/medium/low/none)\n2. Estimated budget range if mentioned\n3. Timeline urgency\n4. Preferred contact method\n5. Any specific property requirements mentioned\n6. Recommended next action for the sales team\n\nRespond with a structured JSON object.",
+        "hasOutputParser": true,
+        "options": {
+          "maxIterations": 5,
+          "systemMessage": "You are a lead qualification AI for a real estate company. Analyze call interaction data to determine lead quality and provide actionable insights for the sales team. Be concise and focus on actionable information."
+        }
+      }
+    },
+    {
+      "id": "llm-call-extract",
+      "name": "LLM for Voice Call Info Extraction Agent",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [1640, 460],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "options": {
+          "responseFormat": "json_object",
+          "temperature": 0.3
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "placeholder-openai",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "id": "output-parser-call",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [1840, 460],
+      "parameters": {
+        "schemaType": "manual",
+        "jsonSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"interestLevel\": { \"type\": \"string\", \"enum\": [\"high\", \"medium\", \"low\", \"none\"] },\n    \"estimatedBudget\": { \"type\": \"string\" },\n    \"timeline\": { \"type\": \"string\" },\n    \"preferredContact\": { \"type\": \"string\" },\n    \"propertyRequirements\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n    \"recommendedAction\": { \"type\": \"string\" },\n    \"qualificationNotes\": { \"type\": \"string\" }\n  },\n  \"required\": [\"interestLevel\", \"recommendedAction\"]\n}"
+      }
+    },
+    {
+      "id": "structure-call-info",
+      "name": "Structure Extracted Voice Call Info",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1960, 260],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Structure the AI-extracted call info\nconst leadData = $('Set Call Result Data').item.json.leadData;\nconst callData = $('Set Call Result Data').item.json;\nlet aiOutput;\n\ntry {\n  aiOutput = typeof $json.output === 'string' ? JSON.parse($json.output) : $json.output;\n} catch (e) {\n  aiOutput = {\n    interestLevel: 'unknown',\n    recommendedAction: 'Manual review required',\n    qualificationNotes: 'AI parsing failed'\n  };\n}\n\n// Map DTMF to interest\nconst dtmfInterestMap = {\n  '1': 'high',\n  '2': 'medium',\n  '3': 'none',\n  '0': 'unknown'\n};\n\nconst dtmfResponse = callData.dtmfResponse || '0';\nconst dtmfInterest = dtmfInterestMap[dtmfResponse] || 'unknown';\n\n// Use DTMF if available, otherwise use AI inference\nconst finalInterest = dtmfResponse !== '0' ? dtmfInterest : (aiOutput.interestLevel || 'unknown');\n\nreturn {\n  // Lead info\n  leadName: leadData.leadName,\n  leadPhone: leadData.leadPhone,\n  leadEmail: leadData.leadEmail,\n  propertyRef: leadData.propertyRef,\n  \n  // Call info\n  callSid: callData.callSid,\n  callStatus: callData.callStatus,\n  dtmfResponse: dtmfResponse,\n  callInitiatedAt: leadData.callInitiatedAt,\n  \n  // Qualification\n  interestLevel: finalInterest,\n  estimatedBudget: aiOutput.estimatedBudget || 'Not specified',\n  timeline: aiOutput.timeline || 'Not specified',\n  preferredContact: aiOutput.preferredContact || 'Phone',\n  propertyRequirements: aiOutput.propertyRequirements || [],\n  recommendedAction: aiOutput.recommendedAction || 'Follow up call',\n  qualificationNotes: aiOutput.qualificationNotes || ''\n};"
+      }
+    },
+    {
+      "id": "set-lead-status",
+      "name": "Set Lead Status Based on Call Interest",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2180, 260],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "all-data",
+              "name": "qualifiedLead",
+              "value": "={{ $json }}",
+              "type": "object"
+            },
+            {
+              "id": "status",
+              "name": "leadStatus",
+              "value": "={{ $json.interestLevel === 'high' || $json.interestLevel === 'medium' ? 'Interested' : ($json.interestLevel === 'none' ? 'Not Interested' : 'Needs Follow-up') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "if-interested",
+      "name": "IF Lead Interested (from Voice Call)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2400, 260],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "combinator": "or",
+          "conditions": [
+            {
+              "id": "high-interest",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.qualifiedLead.interestLevel }}",
+              "rightValue": "high"
+            },
+            {
+              "id": "medium-interest",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.qualifiedLead.interestLevel }}",
+              "rightValue": "medium"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "calculate-score",
+      "name": "Assign Score to Interested Voice Lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2620, 160],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Calculate lead score for interested voice leads\nconst lead = $json.qualifiedLead;\n\nlet score = 0;\nconst scoreFactors = [];\n\n// Interest level scoring\nif (lead.interestLevel === 'high') {\n  score += 40;\n  scoreFactors.push({ factor: 'High Interest', points: 40 });\n} else if (lead.interestLevel === 'medium') {\n  score += 25;\n  scoreFactors.push({ factor: 'Medium Interest', points: 25 });\n}\n\n// DTMF engagement bonus\nif (lead.dtmfResponse === '1') {\n  score += 15;\n  scoreFactors.push({ factor: 'Active Engagement (Pressed 1)', points: 15 });\n}\n\n// Contact info completeness\nif (lead.leadEmail) {\n  score += 10;\n  scoreFactors.push({ factor: 'Has Email', points: 10 });\n}\n\n// Timeline urgency\nif (lead.timeline && lead.timeline.toLowerCase().includes('asap') || \n    lead.timeline && lead.timeline.toLowerCase().includes('immediate')) {\n  score += 15;\n  scoreFactors.push({ factor: 'Urgent Timeline', points: 15 });\n} else if (lead.timeline && !lead.timeline.includes('Not specified')) {\n  score += 5;\n  scoreFactors.push({ factor: 'Has Timeline', points: 5 });\n}\n\n// Budget mentioned\nif (lead.estimatedBudget && !lead.estimatedBudget.includes('Not specified')) {\n  score += 10;\n  scoreFactors.push({ factor: 'Budget Mentioned', points: 10 });\n}\n\n// Determine priority\nlet priority = 'Medium';\nif (score >= 60) priority = 'Hot';\nelse if (score >= 40) priority = 'Warm';\n\nreturn {\n  ...lead,\n  leadScore: score,\n  priority: priority,\n  scoreFactors: scoreFactors,\n  scoredAt: new Date().toISOString()\n};"
+      }
+    },
+    {
+      "id": "format-timestamp",
+      "name": "Format Current Timestamp for Logging",
+      "type": "n8n-nodes-base.dateTime",
+      "typeVersion": 2,
+      "position": [2840, 160],
+      "parameters": {
+        "operation": "formatDate",
+        "date": "={{ $now }}",
+        "format": "yyyy-MM-dd HH:mm:ss",
+        "options": {}
+      }
+    },
+    {
+      "id": "log-qualified-lead",
+      "name": "Log Qualified Voice Lead to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [3060, 160],
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $json }}",
+            "Name": "={{ $('Assign Score to Interested Voice Lead').item.json.leadName }}",
+            "Phone": "={{ $('Assign Score to Interested Voice Lead').item.json.leadPhone }}",
+            "Email": "={{ $('Assign Score to Interested Voice Lead').item.json.leadEmail }}",
+            "Property": "={{ $('Assign Score to Interested Voice Lead').item.json.propertyRef }}",
+            "Score": "={{ $('Assign Score to Interested Voice Lead').item.json.leadScore }}",
+            "Priority": "={{ $('Assign Score to Interested Voice Lead').item.json.priority }}",
+            "Interest Level": "={{ $('Assign Score to Interested Voice Lead').item.json.interestLevel }}",
+            "Budget": "={{ $('Assign Score to Interested Voice Lead').item.json.estimatedBudget }}",
+            "Timeline": "={{ $('Assign Score to Interested Voice Lead').item.json.timeline }}",
+            "Recommended Action": "={{ $('Assign Score to Interested Voice Lead').item.json.recommendedAction }}"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "placeholder-gsheets",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "if-log-failed",
+      "name": "IF Voice Lead Logging to Sheets Failed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3060, 360],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "check-error",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.error !== undefined }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "error-trigger",
+      "name": "Error Trigger: Notify Admin of Sheets Failure",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [3280, 420],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "id"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ai-generate-summary",
+      "name": "AI Agent: Generate Voice Call Lead Summary",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [2620, 360],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Generate a concise summary of this voice call lead interaction:\n\nLead: {{ $json.qualifiedLead.leadName }}\nPhone: {{ $json.qualifiedLead.leadPhone }}\nProperty Interest: {{ $json.qualifiedLead.propertyRef }}\nInterest Level: {{ $json.qualifiedLead.interestLevel }}\nCall Response: {{ $json.qualifiedLead.dtmfResponse === '1' ? 'Interested' : ($json.qualifiedLead.dtmfResponse === '2' ? 'Callback Requested' : 'No Active Response') }}\nBudget: {{ $json.qualifiedLead.estimatedBudget }}\nTimeline: {{ $json.qualifiedLead.timeline }}\n\nProvide:\n1. A 2-3 sentence summary\n2. Recommended next steps for sales team\n3. Any notes or flags for follow-up",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are a sales assistant AI. Create concise, actionable lead summaries for the sales team. Focus on key qualification data and clear next steps."
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "llm-summary",
+      "name": "LLM for Voice Call Lead Summary Agent",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [2620, 520],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "placeholder-openai",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "id": "log-summary",
+      "name": "Log Voice Call Lead Summary to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [2840, 360],
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "LeadsSummary"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $now.format('YYYY-MM-DD HH:mm:ss') }}",
+            "LeadName": "={{ $('Set Lead Status Based on Call Interest').item.json.qualifiedLead.leadName }}",
+            "Summary": "={{ $json.text }}",
+            "InterestLevel": "={{ $('Set Lead Status Based on Call Interest').item.json.qualifiedLead.interestLevel }}",
+            "NextSteps": "={{ $('Set Lead Status Based on Call Interest').item.json.qualifiedLead.recommendedAction }}"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "placeholder-gsheets",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "not-interested-log",
+      "name": "Log Not Interested Lead",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [2620, 560],
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $now.format('YYYY-MM-DD HH:mm:ss') }}",
+            "Name": "={{ $json.qualifiedLead.leadName }}",
+            "Phone": "={{ $json.qualifiedLead.leadPhone }}",
+            "Email": "={{ $json.qualifiedLead.leadEmail }}",
+            "Property": "={{ $json.qualifiedLead.propertyRef }}",
+            "Score": "0",
+            "Priority": "None",
+            "Interest Level": "={{ $json.qualifiedLead.interestLevel }}",
+            "Status": "={{ $json.leadStatus }}"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "placeholder-gsheets",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook for Voice Call Lead": {
+      "main": [
+        [
+          {
+            "node": "Set Initial Voice Call Lead Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Initial Voice Call Lead Details": {
+      "main": [
+        [
+          {
+            "node": "Generate Voice Call Introduction Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Voice Call Introduction Script": {
+      "main": [
+        [
+          {
+            "node": "ElevenLabs: Convert Intro Script to Voice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ElevenLabs: Convert Intro Script to Voice": {
+      "main": [
+        [
+          {
+            "node": "Twilio: Initiate Voice Call to Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Twilio: Initiate Voice Call to Lead": {
+      "main": [
+        [
+          {
+            "node": "Set Call Result Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Call Result Data": {
+      "main": [
+        [
+          {
+            "node": "AI Agent: Extract Info from Voice Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM for Voice Call Info Extraction Agent": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent: Extract Info from Voice Call",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent: Extract Info from Voice Call",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent: Extract Info from Voice Call": {
+      "main": [
+        [
+          {
+            "node": "Structure Extracted Voice Call Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structure Extracted Voice Call Info": {
+      "main": [
+        [
+          {
+            "node": "Set Lead Status Based on Call Interest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Lead Status Based on Call Interest": {
+      "main": [
+        [
+          {
+            "node": "IF Lead Interested (from Voice Call)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Lead Interested (from Voice Call)": {
+      "main": [
+        [
+          {
+            "node": "Assign Score to Interested Voice Lead",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AI Agent: Generate Voice Call Lead Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Not Interested Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assign Score to Interested Voice Lead": {
+      "main": [
+        [
+          {
+            "node": "Format Current Timestamp for Logging",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Current Timestamp for Logging": {
+      "main": [
+        [
+          {
+            "node": "Log Qualified Voice Lead to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Qualified Voice Lead to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "IF Voice Lead Logging to Sheets Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Voice Lead Logging to Sheets Failed": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Error Trigger: Notify Admin of Sheets Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM for Voice Call Lead Summary Agent": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent: Generate Voice Call Lead Summary",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent: Generate Voice Call Lead Summary": {
+      "main": [
+        [
+          {
+            "node": "Log Voice Call Lead Summary to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

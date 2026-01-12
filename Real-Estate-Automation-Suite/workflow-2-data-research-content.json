@@ -1,0 +1,680 @@
+{
+  "name": "Real Estate - AI Data Research & Content Generation",
+  "nodes": [
+    {
+      "id": "setup-guide",
+      "name": "Sticky Note - Setup Guide",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [-200, -100],
+      "parameters": {
+        "content": "# 🛠️ Setup Guide\n\n## 📄 Overview\nThis workflow fetches data from external URLs, extracts information using AI, performs research with web search tools, generates analysis, and outputs results to Google Sheets and Google Docs.\n\n## 🔑 Required Credentials\n- **OpenAI**: API key for data extraction and content generation\n- **Google Sheets**: OAuth2 for logging analysis data\n- **Google Docs**: OAuth2 for updating documents\n- **SerpAPI**: API key for web search tool (optional)\n\n## ⚙️ Configuration Steps\n1. Connect all required credentials\n2. Update **Fetch External Data** node with your target URL\n3. Configure **Google Sheets** node with your spreadsheet ID and sheet name\n4. Configure **Google Docs** node with your document ID\n5. Set schedule trigger timing (default: every hour)\n6. Customize AI prompts as needed for your use case\n\n## 📋 Resources to Create\n- [🔗 Create Google Sheet](https://sheets.new) - Create a sheet with columns: Timestamp, Title, Summary, Category, Source\n- Create a Google Doc for AI analysis output\n\n## 🧪 Testing\n1. Use Manual Trigger to test\n2. Check Google Sheets/Docs for output\n3. Review execution logs for AI responses",
+        "height": 720,
+        "width": 520,
+        "color": 2
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "section-triggers",
+      "name": "Sticky Note - Triggers",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [340, 80],
+      "parameters": {
+        "content": "## Part 1: Triggers\nManual or scheduled execution",
+        "height": 260,
+        "width": 320,
+        "color": 5
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "section-extraction",
+      "name": "Sticky Note - Data Extraction",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [700, 80],
+      "parameters": {
+        "content": "## Part 2: Data Ingestion & AI Extraction\nFetch external data and extract structured information",
+        "height": 400,
+        "width": 680,
+        "color": 4
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "section-research",
+      "name": "Sticky Note - Research Agent",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [1420, 80],
+      "parameters": {
+        "content": "## Part 3: AI Research Agent\nAdvanced analysis with web search and calculation tools",
+        "height": 480,
+        "width": 520,
+        "color": 4
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "section-output",
+      "name": "Sticky Note - Output",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [1980, 80],
+      "parameters": {
+        "content": "## Part 4: Output & Dissemination\nSave to Google Docs, Sheets, and further processing",
+        "height": 520,
+        "width": 900,
+        "color": 3
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "manual-trigger",
+      "name": "Manual Trigger for Data Analysis Flow",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [380, 200],
+      "parameters": {}
+    },
+    {
+      "id": "schedule-trigger",
+      "name": "Scheduled Trigger for Data Analysis Flow",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [380, 320],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "merge-triggers",
+      "name": "Merge Triggers",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [600, 260],
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      }
+    },
+    {
+      "id": "fetch-data",
+      "name": "Fetch External Data for AI Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [820, 260],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.example.com/market-data",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "set-fetched-data",
+      "name": "Set Fetched Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1040, 260],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "raw-data",
+              "name": "rawData",
+              "value": "={{ JSON.stringify($json) }}",
+              "type": "string"
+            },
+            {
+              "id": "fetch-time",
+              "name": "fetchedAt",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ai-extract-info",
+      "name": "AI Extract Information from Fetched Data",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [1260, 260],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.rawData }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are a data extraction AI for real estate market analysis. Extract and structure the following information from the provided data.\n\nRespond with valid JSON containing:\n{\n  \"extractedItems\": [\n    {\n      \"title\": \"Item title or name\",\n      \"category\": \"market_trend | property_listing | news | statistic\",\n      \"summary\": \"Brief summary\",\n      \"keyMetrics\": {},\n      \"relevanceScore\": 0-100\n    }\n  ],\n  \"overallSummary\": \"High-level summary of all data\",\n  \"dataQuality\": \"high | medium | low\",\n  \"processingNotes\": \"Any issues or observations\"\n}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "llm-extractor",
+      "name": "LLM for Data Information Extractor",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [1260, 460],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "options": {
+          "responseFormat": "json_object",
+          "temperature": 0.2
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "placeholder-openai",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "id": "parse-extraction",
+      "name": "Parse Extracted Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1480, 260],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Parse AI extraction output\nconst prevData = $('Set Fetched Data').item.json;\nlet extractedData;\n\ntry {\n  extractedData = JSON.parse($json.text);\n} catch (e) {\n  extractedData = { error: 'Failed to parse AI response', raw: $json.text };\n}\n\nreturn {\n  fetchedAt: prevData.fetchedAt,\n  extraction: extractedData,\n  itemCount: extractedData.extractedItems?.length || 0,\n  overallSummary: extractedData.overallSummary || '',\n  dataQuality: extractedData.dataQuality || 'unknown'\n};"
+      }
+    },
+    {
+      "id": "ai-research-agent",
+      "name": "AI Agent for Research & Content Generation",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
+      "position": [1700, 260],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this extracted real estate data and generate comprehensive insights:\n\nData Summary: {{ $json.overallSummary }}\nItem Count: {{ $json.itemCount }}\nData Quality: {{ $json.dataQuality }}\n\nExtracted Items: {{ JSON.stringify($json.extraction.extractedItems || []) }}\n\nTasks:\n1. Identify the most significant market trends\n2. Calculate any relevant statistics or comparisons\n3. Search for additional context on major findings if needed\n4. Generate a comprehensive analysis report suitable for a real estate professional\n5. Provide actionable recommendations based on the data",
+        "hasOutputParser": false,
+        "options": {
+          "maxIterations": 10,
+          "systemMessage": "You are an expert real estate market analyst AI. Your role is to analyze market data, identify trends, and generate actionable insights for real estate professionals. Use the calculator tool for numerical analysis and the web search tool to gather additional market context when needed. Provide clear, professional analysis with specific recommendations."
+        }
+      }
+    },
+    {
+      "id": "llm-research-agent",
+      "name": "LLM for Research & Content AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [1580, 500],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "options": {
+          "temperature": 0.5
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "placeholder-openai",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "id": "calculator-tool",
+      "name": "Calculator Tool for AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "typeVersion": 1,
+      "position": [1700, 500],
+      "parameters": {}
+    },
+    {
+      "id": "serp-tool",
+      "name": "SerpAPI Web Search Tool for AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.toolSerpApi",
+      "typeVersion": 1,
+      "position": [1820, 500],
+      "parameters": {},
+      "credentials": {
+        "serpApi": {
+          "id": "placeholder-serp",
+          "name": "SerpAPI account"
+        }
+      }
+    },
+    {
+      "id": "format-agent-output",
+      "name": "Format Agent Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1920, 260],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "analysis",
+              "name": "analysisReport",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            },
+            {
+              "id": "prev-data",
+              "name": "extractionData",
+              "value": "={{ $('Parse Extracted Data').item.json }}",
+              "type": "object"
+            },
+            {
+              "id": "timestamp",
+              "name": "generatedAt",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "update-google-doc",
+      "name": "Update Google Doc with AI Agent Analysis",
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [2140, 140],
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "id"
+        },
+        "actions": {
+          "action": [
+            {
+              "action": "insert",
+              "text": "=# Market Analysis Report - {{ $now.format('YYYY-MM-DD HH:mm') }}\n\n{{ $json.analysisReport }}\n\n---\nData Quality: {{ $json.extractionData.dataQuality }}\nItems Analyzed: {{ $json.extractionData.itemCount }}\n\n---\n\n"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "placeholder-gdocs",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "id": "split-items",
+      "name": "Split AI Agent Output Items",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [2140, 300],
+      "parameters": {
+        "fieldToSplitOut": "extractionData.extraction.extractedItems",
+        "options": {}
+      }
+    },
+    {
+      "id": "log-to-sheets",
+      "name": "Log AI Analysis Data to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [2360, 300],
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $('Format Agent Output').item.json.generatedAt }}",
+            "Title": "={{ $json.title }}",
+            "Category": "={{ $json.category }}",
+            "Summary": "={{ $json.summary }}",
+            "Relevance Score": "={{ $json.relevanceScore }}"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "placeholder-gsheets",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "ai-summarize-1",
+      "name": "OpenAI: Generate Summary (Output 1)",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [2360, 140],
+      "parameters": {
+        "resource": "chat",
+        "operation": "message",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Create a brief executive summary (3-5 sentences) of this analysis for quick review:\n\n{{ $('Format Agent Output').item.json.analysisReport }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "placeholder-openai",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "id": "ai-format-2",
+      "name": "OpenAI: Generate Newsletter Format (Output 2)",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [2580, 140],
+      "parameters": {
+        "resource": "chat",
+        "operation": "message",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Reformat this analysis as a professional real estate newsletter section with engaging headlines and bullet points:\n\n{{ $('Format Agent Output').item.json.analysisReport }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "placeholder-openai",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "id": "final-output",
+      "name": "Aggregate Final Outputs",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2800, 260],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status",
+              "name": "status",
+              "value": "completed",
+              "type": "string"
+            },
+            {
+              "id": "completed-at",
+              "name": "completedAt",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger for Data Analysis Flow": {
+      "main": [
+        [
+          {
+            "node": "Merge Triggers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scheduled Trigger for Data Analysis Flow": {
+      "main": [
+        [
+          {
+            "node": "Merge Triggers",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Triggers": {
+      "main": [
+        [
+          {
+            "node": "Fetch External Data for AI Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch External Data for AI Analysis": {
+      "main": [
+        [
+          {
+            "node": "Set Fetched Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Fetched Data": {
+      "main": [
+        [
+          {
+            "node": "AI Extract Information from Fetched Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM for Data Information Extractor": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Extract Information from Fetched Data",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Extract Information from Fetched Data": {
+      "main": [
+        [
+          {
+            "node": "Parse Extracted Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Extracted Data": {
+      "main": [
+        [
+          {
+            "node": "AI Agent for Research & Content Generation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM for Research & Content AI Agent": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent for Research & Content Generation",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculator Tool for AI Agent": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent for Research & Content Generation",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SerpAPI Web Search Tool for AI Agent": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent for Research & Content Generation",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent for Research & Content Generation": {
+      "main": [
+        [
+          {
+            "node": "Format Agent Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Agent Output": {
+      "main": [
+        [
+          {
+            "node": "Update Google Doc with AI Agent Analysis",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Split AI Agent Output Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Google Doc with AI Agent Analysis": {
+      "main": [
+        [
+          {
+            "node": "OpenAI: Generate Summary (Output 1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split AI Agent Output Items": {
+      "main": [
+        [
+          {
+            "node": "Log AI Analysis Data to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Generate Summary (Output 1)": {
+      "main": [
+        [
+          {
+            "node": "OpenAI: Generate Newsletter Format (Output 2)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Generate Newsletter Format (Output 2)": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Final Outputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log AI Analysis Data to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Final Outputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}
