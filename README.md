@@ -44,7 +44,7 @@ A growing collection of production-ready n8n workflows for:
 
 | Workflow | Description | Complexity |
 |----------|-------------|------------|
-| 🖼️ `instagram-post-generator` | AI-generated Instagram posts with images | ⭐⭐⭐ |
+| 🖼️ `Real-Estate-Automation-Suite` | Lead qualification and filitering | ⭐⭐⭐ |
 | 📨 `email-lead-nurture` | Automated email sequence for new leads | ⭐⭐ |
 | 🎙️ `content-repurposer` | Turn one piece of content into 10 | ⭐⭐⭐ |
 | 📋 `crm-sync` | Sync leads across multiple platforms | ⭐⭐ |
@@ -60,7 +60,7 @@ A growing collection of production-ready n8n workflows for:
 ### 1. Download the Workflow
 ```bash
 # Clone the entire repo
-git clone https://github.com/yourusername/free-n8n-automations.git
+git clone https://github.com/bradleybeatz1313/free-n8n-paid-template-vault.git
 
 # Or download individual workflow JSON files
 ```
@@ -92,20 +92,7 @@ Most workflows require one or more of these integrations:
 
 ---
 
-## 📂 Folder Structure
 
-```
-📁 free-n8n-automations/
-├── 📁 content-creation/
-│   ├── instagram-post-generator.json
-│   └── content-repurposer.json
-├── 📁 email-automation/
-│   └── email-lead-nurture.json
-├── 📁 lead-management/
-│   └── crm-sync.json
-├── 📁 utilities/
-│   └── slack-notifications.json
-└── 📄 README.md
 ```
 
 ---
