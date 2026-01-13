@@ -1,0 +1,611 @@
+{
+  "name": "Daily Real Estate Deal Finder",
+  "nodes": [
+    {
+      "id": "a1b2c3d4-setup-guide",
+      "name": "Sticky Note - Setup Guide",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [-688, -416],
+      "parameters": {
+        "content": "# 🏠 Daily Real Estate Deal Finder\n\n## 📄 Overview\nThis automation sends you daily real estate deals via email every morning at 9AM. It searches markets you specify with strict criteria, fetches listings from Zillow API, calculates investment metrics, saves to Google Sheets, and emails you the best deals.\n\n## 🔑 Required Credentials\n\n### 1. Google OAuth2\n- **Purpose**: Google Sheets access\n- **Setup Video**: https://youtu.be/LTuy83t_Rt4\n- Enable Google Sheets API in Google Cloud Console\n\n### 2. RapidAPI - Zillow API\n- **Purpose**: Property listings & rent estimates\n- Sign up at https://rapidapi.com\n- Subscribe to Zillow API\n- Copy your API key\n\n### 3. Gmail OAuth2\n- **Purpose**: Send daily email digest\n- Uses same Google OAuth setup\n\n## 📋 Google Sheet Setup\nCreate a new Google Sheet with these columns:\n- **A**: Address\n- **B**: Price\n- **C**: Rent Zestimate\n- **D**: Cash on Cash ROI\n- **E**: Monthly Cash Flow\n- **F**: Down Payment\n- **G**: Monthly Maintenance\n- **H**: Vacancy Loss\n- **I**: Property URL\n- **J**: Date Added\n\n## ⚙️ Configuration Steps\n1. Import this workflow\n2. Connect Google Sheets credential\n3. Add RapidAPI credential to HTTP node\n4. Update search parameters in 'Set Parameters' node\n5. Link your Google Sheet ID in Sheets node\n6. Add your email in Gmail node\n7. Test manually, then activate!\n\n## 🧮 Investment Metrics Calculated\n- **Down Payment**: 20% of purchase price\n- **Monthly Mortgage**: 30-year fixed estimate\n- **Vacancy Loss**: 8% of rent\n- **Maintenance**: 10% of rent\n- **Cash Flow**: Rent - Mortgage - Expenses\n- **Cash on Cash ROI**: Annual Cash Flow / Down Payment",
+        "height": 880,
+        "width": 624,
+        "color": 2
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "b2c3d4e5-trigger-section",
+      "name": "Sticky Note - Trigger",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [368, 180],
+      "parameters": {
+        "content": "## 🕘 Part 1: Daily Trigger\nRuns every day at 9:00 AM",
+        "height": 120,
+        "width": 260,
+        "color": 5
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "c3d4e5f6-params-section",
+      "name": "Sticky Note - Parameters",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [660, 180],
+      "parameters": {
+        "content": "## ⚙️ Part 2: Search Criteria\nDefine your market & property requirements",
+        "height": 120,
+        "width": 280,
+        "color": 5
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "d4e5f6g7-api-section",
+      "name": "Sticky Note - Zillow API",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [980, 180],
+      "parameters": {
+        "content": "## 🏘️ Part 3: Zillow API\nFetch listings & rent estimates from RapidAPI",
+        "height": 120,
+        "width": 480,
+        "color": 7
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "e5f6g7h8-calc-section",
+      "name": "Sticky Note - Calculations",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [1500, 180],
+      "parameters": {
+        "content": "## 🧮 Part 4: Investment Metrics\nCalculate Down PMT, Cash Flow, ROI, etc.",
+        "height": 120,
+        "width": 280,
+        "color": 4
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "f6g7h8i9-filter-section",
+      "name": "Sticky Note - Filter",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [1820, 180],
+      "parameters": {
+        "content": "## ✅ Part 5: Filter Good Deals\nOnly keep properties with positive cash flow",
+        "height": 120,
+        "width": 260,
+        "color": 4
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "g7h8i9j0-output-section",
+      "name": "Sticky Note - Output",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [2120, 180],
+      "parameters": {
+        "content": "## 📊 Part 6: Save & Email\nStore in Google Sheets & send email digest",
+        "height": 120,
+        "width": 520,
+        "color": 3
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "h8i9j0k1-schedule-trigger",
+      "name": "Daily 9AM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [400, 352],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "typeVersion": 1.2
+    },
+    {
+      "id": "i9j0k1l2-set-params",
+      "name": "Set Search Parameters",
+      "type": "n8n-nodes-base.set",
+      "position": [700, 352],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "param-location",
+              "name": "location",
+              "value": "Austin, TX",
+              "type": "string"
+            },
+            {
+              "id": "param-minbed",
+              "name": "min_beds",
+              "value": 2,
+              "type": "number"
+            },
+            {
+              "id": "param-minbath",
+              "name": "min_baths",
+              "value": 2,
+              "type": "number"
+            },
+            {
+              "id": "param-minprice",
+              "name": "min_price",
+              "value": 250000,
+              "type": "number"
+            },
+            {
+              "id": "param-maxprice",
+              "name": "max_price",
+              "value": 400000,
+              "type": "number"
+            },
+            {
+              "id": "param-proptype",
+              "name": "property_type",
+              "value": "SingleFamily",
+              "type": "string"
+            },
+            {
+              "id": "param-downpct",
+              "name": "down_payment_pct",
+              "value": 0.2,
+              "type": "number"
+            },
+            {
+              "id": "param-intrate",
+              "name": "interest_rate",
+              "value": 0.07,
+              "type": "number"
+            },
+            {
+              "id": "param-loanterm",
+              "name": "loan_term_years",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "param-vacancy",
+              "name": "vacancy_rate",
+              "value": 0.08,
+              "type": "number"
+            },
+            {
+              "id": "param-maint",
+              "name": "maintenance_rate",
+              "value": 0.1,
+              "type": "number"
+            },
+            {
+              "id": "param-email",
+              "name": "recipient_email",
+              "value": "your-email@gmail.com",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 3.4
+    },
+    {
+      "id": "j0k1l2m3-zillow-search",
+      "name": "Zillow Property Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1000, 352],
+      "parameters": {
+        "method": "GET",
+        "url": "https://zillow-com1.p.rapidapi.com/propertyExtendedSearch",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "location",
+              "value": "={{ $json.location }}"
+            },
+            {
+              "name": "home_type",
+              "value": "={{ $json.property_type }}"
+            },
+            {
+              "name": "minPrice",
+              "value": "={{ $json.min_price }}"
+            },
+            {
+              "name": "maxPrice",
+              "value": "={{ $json.max_price }}"
+            },
+            {
+              "name": "bedsMin",
+              "value": "={{ $json.min_beds }}"
+            },
+            {
+              "name": "bathsMin",
+              "value": "={{ $json.min_baths }}"
+            },
+            {
+              "name": "status_type",
+              "value": "ForSale"
+            },
+            {
+              "name": "sort",
+              "value": "Newest"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rapidapi-zillow",
+          "name": "RapidAPI Zillow"
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "k1l2m3n4-split-results",
+      "name": "Split Properties",
+      "type": "n8n-nodes-base.splitOut",
+      "position": [1220, 352],
+      "parameters": {
+        "fieldToSplitOut": "props",
+        "options": {}
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "l2m3n4o5-get-rent-estimate",
+      "name": "Get Rent Zestimate",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1440, 352],
+      "parameters": {
+        "method": "GET",
+        "url": "https://zillow-com1.p.rapidapi.com/property",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "zpid",
+              "value": "={{ $json.zpid }}"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 5,
+              "batchInterval": 1000
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rapidapi-zillow",
+          "name": "RapidAPI Zillow"
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "m3n4o5p6-calculate-metrics",
+      "name": "Calculate Investment Metrics",
+      "type": "n8n-nodes-base.code",
+      "position": [1660, 352],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Get property data\nconst price = $json.price || 0;\nconst rentZestimate = $json.rentZestimate || $json.zestimate * 0.008 || price * 0.007; // Fallback estimate\nconst address = $json.address?.streetAddress || $json.streetAddress || 'Unknown';\nconst city = $json.address?.city || $json.city || '';\nconst state = $json.address?.state || $json.state || '';\nconst fullAddress = `${address}, ${city}, ${state}`;\nconst propertyUrl = `https://www.zillow.com/homedetails/${$json.zpid}_zpid/`;\n\n// Get parameters from Set Parameters node\nconst params = $('Set Search Parameters').first().json;\nconst downPaymentPct = params.down_payment_pct || 0.20;\nconst interestRate = params.interest_rate || 0.07;\nconst loanTermYears = params.loan_term_years || 30;\nconst vacancyRate = params.vacancy_rate || 0.08;\nconst maintenanceRate = params.maintenance_rate || 0.10;\n\n// Calculate Down Payment\nconst downPayment = Math.round(price * downPaymentPct);\nconst loanAmount = price - downPayment;\n\n// Calculate Monthly Mortgage Payment (P&I)\nconst monthlyRate = interestRate / 12;\nconst numPayments = loanTermYears * 12;\nconst monthlyMortgage = loanAmount > 0 \n  ? Math.round((loanAmount * monthlyRate * Math.pow(1 + monthlyRate, numPayments)) / \n    (Math.pow(1 + monthlyRate, numPayments) - 1))\n  : 0;\n\n// Calculate Expenses\nconst monthlyVacancyLoss = Math.round(rentZestimate * vacancyRate);\nconst monthlyMaintenance = Math.round(rentZestimate * maintenanceRate);\nconst estimatedTaxInsurance = Math.round(price * 0.015 / 12); // ~1.5% annual\n\n// Total Monthly Expenses\nconst totalMonthlyExpenses = monthlyMortgage + monthlyVacancyLoss + monthlyMaintenance + estimatedTaxInsurance;\n\n// Monthly Cash Flow\nconst monthlyCashFlow = Math.round(rentZestimate - totalMonthlyExpenses);\n\n// Annual Cash Flow\nconst annualCashFlow = monthlyCashFlow * 12;\n\n// Cash on Cash ROI (Annual Cash Flow / Total Cash Invested)\nconst closingCosts = Math.round(price * 0.03); // Estimate 3% closing costs\nconst totalCashInvested = downPayment + closingCosts;\nconst cashOnCashROI = totalCashInvested > 0 \n  ? Math.round((annualCashFlow / totalCashInvested) * 10000) / 100 \n  : 0;\n\n// Format currency for display\nconst formatCurrency = (num) => '$' + num.toLocaleString();\n\nreturn {\n  json: {\n    address: fullAddress,\n    price: price,\n    priceFormatted: formatCurrency(price),\n    rentZestimate: rentZestimate,\n    rentFormatted: formatCurrency(rentZestimate),\n    downPayment: downPayment,\n    downPaymentFormatted: formatCurrency(downPayment),\n    monthlyMortgage: monthlyMortgage,\n    monthlyMaintenance: monthlyMaintenance,\n    monthlyVacancyLoss: monthlyVacancyLoss,\n    monthlyCashFlow: monthlyCashFlow,\n    cashFlowFormatted: formatCurrency(monthlyCashFlow),\n    annualCashFlow: annualCashFlow,\n    cashOnCashROI: cashOnCashROI,\n    roiFormatted: cashOnCashROI + '%',\n    propertyUrl: propertyUrl,\n    zpid: $json.zpid,\n    beds: $json.bedrooms || $json.beds,\n    baths: $json.bathrooms || $json.baths,\n    sqft: $json.livingArea || $json.sqft,\n    dateAdded: new Date().toISOString().split('T')[0]\n  }\n};"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "n4o5p6q7-filter-deals",
+      "name": "Filter Positive Cash Flow",
+      "type": "n8n-nodes-base.filter",
+      "position": [1880, 352],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "filter-cashflow",
+              "leftValue": "={{ $json.monthlyCashFlow }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "typeVersion": 2.2
+    },
+    {
+      "id": "o5p6q7r8-sort-roi",
+      "name": "Sort by ROI",
+      "type": "n8n-nodes-base.sort",
+      "position": [2100, 352],
+      "parameters": {
+        "sortFieldsUi": {
+          "sortField": [
+            {
+              "fieldName": "cashOnCashROI",
+              "order": "descending"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "p6q7r8s9-limit-results",
+      "name": "Top 20 Deals",
+      "type": "n8n-nodes-base.limit",
+      "position": [2320, 352],
+      "parameters": {
+        "maxItems": 20
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "q7r8s9t0-google-sheets",
+      "name": "Save to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [2540, 352],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Address": "={{ $json.address }}",
+            "Price": "={{ $json.price }}",
+            "Rent Zestimate": "={{ $json.rentZestimate }}",
+            "Cash on Cash ROI": "={{ $json.roiFormatted }}",
+            "Monthly Cash Flow": "={{ $json.monthlyCashFlow }}",
+            "Down Payment": "={{ $json.downPayment }}",
+            "Monthly Maintenance": "={{ $json.monthlyMaintenance }}",
+            "Vacancy Loss": "={{ $json.monthlyVacancyLoss }}",
+            "Property URL": "={{ $json.propertyUrl }}",
+            "Date Added": "={{ $json.dateAdded }}"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-oauth",
+          "name": "Google Sheets account"
+        }
+      },
+      "typeVersion": 4.5
+    },
+    {
+      "id": "r8s9t0u1-build-email",
+      "name": "Build Email Content",
+      "type": "n8n-nodes-base.code",
+      "position": [2320, 552],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = $input.all();\nconst params = $('Set Search Parameters').first().json;\nconst today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\n\nlet html = `\n<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }\n    h1 { color: #2c5282; border-bottom: 2px solid #2c5282; padding-bottom: 10px; }\n    h2 { color: #4a5568; }\n    .summary { background: #f7fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px; }\n    .deal { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 15px; }\n    .deal:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }\n    .price { font-size: 1.4em; color: #2d3748; font-weight: bold; }\n    .roi { color: #38a169; font-weight: bold; font-size: 1.2em; }\n    .cashflow { color: #3182ce; font-weight: bold; }\n    .negative { color: #e53e3e; }\n    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }\n    .metric { background: #edf2f7; padding: 8px; border-radius: 4px; text-align: center; }\n    .metric-label { font-size: 0.8em; color: #718096; }\n    .metric-value { font-weight: bold; color: #2d3748; }\n    a { color: #3182ce; text-decoration: none; }\n    a:hover { text-decoration: underline; }\n    .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #718096; font-size: 0.9em; }\n  </style>\n</head>\n<body>\n  <h1>🏠 Daily Real Estate Deals</h1>\n  <p><strong>${today}</strong></p>\n  \n  <div class=\"summary\">\n    <h2>📍 Search Criteria</h2>\n    <p><strong>Location:</strong> ${params.location}</p>\n    <p><strong>Price Range:</strong> $${params.min_price.toLocaleString()} - $${params.max_price.toLocaleString()}</p>\n    <p><strong>Beds/Baths:</strong> ${params.min_beds}+ beds, ${params.min_baths}+ baths</p>\n    <p><strong>Deals Found:</strong> ${items.length} properties with positive cash flow</p>\n  </div>\n  \n  <h2>🏆 Top Deals (Sorted by ROI)</h2>\n`;\n\nif (items.length === 0) {\n  html += `<p>No properties found matching your criteria with positive cash flow today. Consider adjusting your search parameters.</p>`;\n} else {\n  items.forEach((item, index) => {\n    const d = item.json;\n    const cashFlowClass = d.monthlyCashFlow >= 0 ? 'cashflow' : 'cashflow negative';\n    \n    html += `\n    <div class=\"deal\">\n      <h3>#${index + 1}: <a href=\"${d.propertyUrl}\" target=\"_blank\">${d.address}</a></h3>\n      <p class=\"price\">${d.priceFormatted}</p>\n      <div class=\"metrics\">\n        <div class=\"metric\">\n          <div class=\"metric-label\">Cash on Cash ROI</div>\n          <div class=\"metric-value roi\">${d.roiFormatted}</div>\n        </div>\n        <div class=\"metric\">\n          <div class=\"metric-label\">Monthly Cash Flow</div>\n          <div class=\"metric-value ${cashFlowClass}\">${d.cashFlowFormatted}</div>\n        </div>\n        <div class=\"metric\">\n          <div class=\"metric-label\">Rent Estimate</div>\n          <div class=\"metric-value\">${d.rentFormatted}/mo</div>\n        </div>\n        <div class=\"metric\">\n          <div class=\"metric-label\">Down Payment</div>\n          <div class=\"metric-value\">${d.downPaymentFormatted}</div>\n        </div>\n        <div class=\"metric\">\n          <div class=\"metric-label\">Beds/Baths</div>\n          <div class=\"metric-value\">${d.beds || '?'}bd / ${d.baths || '?'}ba</div>\n        </div>\n        <div class=\"metric\">\n          <div class=\"metric-label\">Sq Ft</div>\n          <div class=\"metric-value\">${d.sqft ? d.sqft.toLocaleString() : 'N/A'}</div>\n        </div>\n      </div>\n    </div>\n    `;\n  });\n}\n\nhtml += `\n  <div class=\"footer\">\n    <p>📊 Investment assumptions: ${params.down_payment_pct * 100}% down, ${params.interest_rate * 100}% interest rate, ${params.loan_term_years}-year loan</p>\n    <p>📉 Expense estimates: ${params.vacancy_rate * 100}% vacancy, ${params.maintenance_rate * 100}% maintenance, ~1.5% tax/insurance</p>\n    <p>⚠️ <em>These are estimates. Always do your own due diligence before making investment decisions.</em></p>\n    <p>Powered by n8n automation 🤖</p>\n  </div>\n</body>\n</html>\n`;\n\nreturn [{\n  json: {\n    emailHtml: html,\n    subject: `🏠 Daily Real Estate Deals - ${items.length} Properties Found - ${today}`,\n    recipientEmail: params.recipient_email,\n    dealCount: items.length\n  }\n}];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "s9t0u1v2-send-email",
+      "name": "Send Email Digest",
+      "type": "n8n-nodes-base.gmail",
+      "position": [2540, 552],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.recipientEmail }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.emailHtml }}",
+        "options": {}
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-oauth",
+          "name": "Gmail account"
+        }
+      },
+      "typeVersion": 2.1
+    },
+    {
+      "id": "t0u1v2w3-no-deals",
+      "name": "Sticky Note - No Deals Path",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [1880, 480],
+      "parameters": {
+        "content": "## ℹ️ Note\nIf no properties have positive cash flow, the email will still send with a message saying no deals were found.",
+        "height": 100,
+        "width": 400,
+        "color": 2
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "u1v2w3x4-config-note",
+      "name": "Sticky Note - Config Instructions",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [700, 480],
+      "parameters": {
+        "content": "## ⚠️ Configure These Values!\n- **location**: Your target market (e.g., \"Austin, TX\")\n- **min/max_price**: Your budget range\n- **min_beds/baths**: Minimum requirements\n- **down_payment_pct**: Default 20%\n- **interest_rate**: Current mortgage rate\n- **recipient_email**: Your email address",
+        "height": 180,
+        "width": 280,
+        "color": 6
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "v2w3x4y5-api-note",
+      "name": "Sticky Note - API Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [1000, 480],
+      "parameters": {
+        "content": "## 🔑 RapidAPI Setup\n1. Go to rapidapi.com\n2. Search for \"Zillow API\"\n3. Subscribe to a plan\n4. Create HTTP Header Auth credential:\n   - **Header Name**: X-RapidAPI-Key\n   - **Header Value**: Your API key\n5. Add second header:\n   - **Header Name**: X-RapidAPI-Host\n   - **Header Value**: zillow-com1.p.rapidapi.com",
+        "height": 200,
+        "width": 440,
+        "color": 6
+      },
+      "typeVersion": 1
+    }
+  ],
+  "connections": {
+    "Daily 9AM Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Search Parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Search Parameters": {
+      "main": [
+        [
+          {
+            "node": "Zillow Property Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zillow Property Search": {
+      "main": [
+        [
+          {
+            "node": "Split Properties",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Properties": {
+      "main": [
+        [
+          {
+            "node": "Get Rent Zestimate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Rent Zestimate": {
+      "main": [
+        [
+          {
+            "node": "Calculate Investment Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Investment Metrics": {
+      "main": [
+        [
+          {
+            "node": "Filter Positive Cash Flow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Positive Cash Flow": {
+      "main": [
+        [
+          {
+            "node": "Sort by ROI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort by ROI": {
+      "main": [
+        [
+          {
+            "node": "Top 20 Deals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Top 20 Deals": {
+      "main": [
+        [
+          {
+            "node": "Save to Google Sheets",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Email Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Email Content": {
+      "main": [
+        [
+          {
+            "node": "Send Email Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "tags": []
+}
